@@ -838,13 +838,13 @@ h3 {
 
 .release-grid {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 8%;
   align-items: center;
 }
 
 .release-icon {
-  width: 220px;
+  width: 300px;
   height: auto;
   aspect-ratio: 1;
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -1281,12 +1281,12 @@ h3 {
   }
 
   .release-grid {
-    grid-template-columns: 160px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
     gap: 7%;
   }
 
   .release-icon {
-    width: 160px;
+    width: 220px;
   }
 
   .release h2 {
@@ -1527,7 +1527,8 @@ h3 {
   }
 
   .release-icon {
-    width: 112px;
+    width: min(200px, 60vw);
+    justify-self: center;
   }
 
   .release h2 {
