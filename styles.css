@@ -1013,6 +1013,10 @@ h3 {
   color: var(--white);
 }
 
+.wordmark-footer .wordmark-logo {
+  filter: brightness(0) invert(1);
+}
+
 .footer-inner p {
   margin: 0;
   color: #aeb3bc;
