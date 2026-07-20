@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://onestep-games.github.io/sitemap.xml
