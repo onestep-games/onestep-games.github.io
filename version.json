@@ -1,0 +1,6 @@
+{
+  "ios_min_build": 30,
+  "ios_testflight_url": "https://testflight.apple.com/join/XR3NjQVt",
+  "android_min_build": 12,
+  "android_store_url": "onestore://common/product/0001007324"
+}
