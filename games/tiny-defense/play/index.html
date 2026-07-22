@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Tiny Defense의 낮 채집 — 나무 도끼질 미니게임을 브라우저에서 바로 해보세요.">
+  <meta name="theme-color" content="#bfe3f2">
+  <meta name="color-scheme" content="light">
+  <link rel="canonical" href="https://onestep-games.github.io/games/tiny-defense/play/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="OneStep Games">
+  <meta property="og:title" content="Tiny Defense 도끼질 미니게임 | 브라우저에서 바로 플레이">
+  <meta property="og:description" content="황금 존에 맞춰 도끼질! Tiny Defense의 낮 채집을 웹에서 미리 만나보세요.">
+  <meta property="og:url" content="https://onestep-games.github.io/games/tiny-defense/play/">
+  <meta property="og:image" content="https://onestep-games.github.io/assets/og-image.jpg">
+
+  <title>도끼질 미니게임 · Tiny Defense | OneStep Games</title>
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+  <style>
+    :root {
+      --paper: #f9f8f3;
+      --ink: #172033;
+      --muted: #5f6672;
+      --line: #d8d9d5;
+      --gold: #e5b83e;
+      --gold-deep: #c8971d;
+      --green: #2f624d;
+      --sky-top: #bfe3f2;
+      --sky-bot: #eaf7d9;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+    body {
+      background:
+        radial-gradient(120% 80% at 50% 0%, #d8f0f7 0%, var(--paper) 60%);
+      color: var(--ink);
+      font-family: Inter, Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top) 12px calc(12px + env(safe-area-inset-bottom));
+    }
+
+    .topbar {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 4px 8px;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .back-link:hover { color: var(--ink); }
+    .wood-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 13px 6px 9px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 1px 0 rgba(23,32,51,.04);
+    }
+    .wood-badge img { width: 26px; height: auto; image-rendering: pixelated; }
+
+    .stage {
+      width: 100%;
+      max-width: 480px;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 720 / 960;
+      border-radius: 20px;
+      border: 1px solid rgba(23,32,51,.08);
+      box-shadow: 0 18px 40px -22px rgba(23,32,51,.5);
+      image-rendering: pixelated;
+      touch-action: manipulation;
+      cursor: pointer;
+      background: linear-gradient(var(--sky-top), var(--sky-bot));
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 14px;
+      text-align: center;
+    }
+    .chop-btn {
+      appearance: none;
+      border: none;
+      width: 100%;
+      padding: 18px 20px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+      color: #3a2a06;
+      font-family: inherit;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: .01em;
+      cursor: pointer;
+      box-shadow: 0 6px 0 #9c7414, 0 12px 22px -10px rgba(200,151,29,.7);
+      transition: transform .05s ease, box-shadow .05s ease;
+      user-select: none;
+    }
+    .chop-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #9c7414, 0 6px 14px -8px rgba(200,151,29,.7);
+    }
+    .hint {
+      margin: 12px 2px 4px;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    kbd {
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 1px 6px;
+      color: var(--ink);
+    }
+
+    /* ── store popup ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(17,26,48,.55);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .22s ease, visibility .22s ease;
+      z-index: 50;
+    }
+    .modal-overlay.open { opacity: 1; visibility: visible; }
+    .modal {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      background: var(--paper);
+      border-radius: 22px;
+      padding: 30px 26px 26px;
+      text-align: center;
+      box-shadow: 0 30px 60px -24px rgba(17,26,48,.7);
+      transform: translateY(14px) scale(.97);
+      transition: transform .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    .modal-overlay.open .modal { transform: none; }
+    .modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(23,32,51,.06);
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .modal-close:hover { background: rgba(23,32,51,.12); color: var(--ink); }
+    .modal-icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 20px;
+      box-shadow: 0 8px 20px -8px rgba(23,32,51,.5);
+      margin: 0 auto 14px;
+      display: block;
+    }
+    .modal .eyebrow {
+      margin: 0 0 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      color: var(--gold-deep);
+    }
+    .modal h2 { margin: 0 0 8px; font-size: 23px; line-height: 1.25; }
+    .modal p { margin: 0 0 20px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+    .store-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px 20px;
+      border-radius: 14px;
+      background: var(--ink);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: 0 10px 24px -12px rgba(23,32,51,.8);
+    }
+    .store-btn:hover { background: #0d1524; }
+    .modal-later {
+      display: inline-block;
+      margin-top: 14px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13.5px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="back-link" href="/games/tiny-defense/">
+      <span aria-hidden="true">&larr;</span> Tiny Defense
+    </a>
+    <div class="wood-badge" aria-label="모은 나무">
+      <img src="./assets/wood.png" alt="나무" width="26">
+      <span id="woodTotal">0</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="720" height="960" aria-label="나무 도끼질 미니게임"></canvas>
+  </div>
+
+  <div class="controls">
+    <button class="chop-btn" id="chopBtn" type="button">도끼질!</button>
+    <p class="hint">
+      마커가 <b style="color:var(--gold-deep)">황금 존</b>에 들어올 때 도끼질하세요.
+      <kbd>스페이스</kbd> / 화면 탭도 됩니다.
+    </p>
+  </div>
+
+  <!-- 스토어 유도 팝업 -->
+  <div class="modal-overlay" id="storeModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal">
+      <button class="modal-close" id="modalClose" type="button" aria-label="닫기">&times;</button>
+      <img class="modal-icon" src="/assets/app-icon.webp" alt="Tiny Defense 아이콘" width="88" height="88">
+      <p class="eyebrow">PLAY THE FULL GAME</p>
+      <h2 id="modalTitle">더 깊은 밤이<br>기다리고 있어요</h2>
+      <p>낮엔 자원을 모으고 밤엔 성을 지키는 무한 생존 디펜스.<br>지금 원스토어에서 만나보세요.</p>
+      <a class="store-btn" id="storeBtn"
+         href="https://m.onestore.co.kr/v2/ko-kr/app/0001007324"
+         target="_blank" rel="noopener">
+        원스토어에서 플레이 <span aria-hidden="true">&rarr;</span>
+      </a>
+      <button class="modal-later" id="modalLater" type="button">계속 도끼질하기</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ── 상수 ──
+    var LW = 720, LH = 960;                 // 논리 좌표
+    var HITS_NEEDED = 3;                     // 3히트 = 1판 (원본 나무 게임 기본 스윙 수)
+    var PLAYS_PER_POPUP = 3;                 // 3판마다 스토어 팝업
+    var STORE_KEY = "td_demo_plays";
+
+    // 스프라이트 스트립: [이미지, 프레임수, 프레임폭, 프레임높이]
+    var sheets = {
+      tree:  { src: "./assets/tree.png",      frames: 6, fw: 256, fh: 256, img: null },
+      idle:  { src: "./assets/pawn-idle.png", frames: 8, fw: 192, fh: 192, img: null },
+      chop:  { src: "./assets/pawn-chop.png", frames: 6, fw: 192, fh: 192, img: null }
+    };
+
+    var canvas = document.getElementById("game");
+    var ctx = canvas.getContext("2d");
+    var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+    function resize() {
+      var cssW = canvas.clientWidth || LW;
+      var cssH = cssW * (LH / LW);
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      ctx.setTransform((canvas.width / LW), 0, 0, (canvas.height / LH), 0, 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+    window.addEventListener("resize", resize);
+
+    // ── 게임 상태 ──
+    var hits = 0;
+    var woodTotal = 0;
+    var paused = false;                      // 팝업 열림 동안 정지
+    var marker = 0;                          // 0..1 바 위 위치
+    var dir = 1;
+    var speed = 1.55;                        // 초당 왕복 진행량
+    var zoneC = 0.5, zoneHW = 0.11;          // 황금 존 중심/반폭(바 비율)
+    var chopT = 0;                           // 도끼질 애니 남은 시간(초)
+    var CHOP_DUR = 0.34;
+    var flashT = 0;                          // 미스 붉은 점멸
+    var msg = "", msgT = 0;                  // 화면 중앙 안내(퍼펙트/빗나감 등)
+    var floats = [];                         // 떠오르는 +나무 텍스트
+    var rewardHold = 0;                      // 판 완료 후 잠깐 정지
+
+    var woodTotalEl = document.getElementById("woodTotal");
+
+    function rollZone() {
+      var margin = zoneHW + 0.04;
+      zoneC = margin + Math.random() * (1 - 2 * margin);
+    }
+
+    function startRound() {
+      hits = 0;
+      marker = 0; dir = 1;
+      rollZone();
+      msg = ""; msgT = 0;
+      rewardHold = 0;
+    }
+
+    function chop() {
+      if (paused || rewardHold > 0) return;
+      var d = Math.abs(marker - zoneC);
+      if (d <= zoneHW) {
+        // 명중
+        hits++;
+        chopT = CHOP_DUR;
+        var perfect = d <= zoneHW * 0.35;
+        var gain = perfect ? 3 : 2;
+        woodTotal += gain;
+        woodTotalEl.textContent = woodTotal;
+        floats.push({ x: LW * 0.5, y: 470, t: 0.9, txt: "+" + gain, perfect: perfect });
+        msg = perfect ? "완벽!" : "명중!";
+        msgT = 0.5;
+        if (hits >= HITS_NEEDED) {
+          finishRound();
+        } else {
+          rollZone();
+        }
+      } else {
+        // 빗나감 — 판은 계속(원본과 동일하게 관대)
+        flashT = 0.28;
+        msg = "빗나감!";
+        msgT = 0.45;
+      }
+    }
+
+    function finishRound() {
+      rewardHold = 0.75;                     // 나무 획득 연출 시간
+      msg = "나무 획득!";
+      msgT = 0.9;
+      // 판 카운트 누적 + 팝업 판정
+      var plays = (parseInt(localStorage.getItem(STORE_KEY) || "0", 10) || 0) + 1;
+      try { localStorage.setItem(STORE_KEY, String(plays)); } catch (e) {}
+      if (plays % PLAYS_PER_POPUP === 0) {
+        window.setTimeout(openModal, 620);   // 획득 연출 잠깐 보여주고 팝업
+      }
+    }
+
+    // ── 입력 ──
+    function onChopInput(e) {
+      if (e) e.preventDefault();
+      chop();
+    }
+    document.getElementById("chopBtn").addEventListener("click", onChopInput);
+    canvas.addEventListener("pointerdown", onChopInput);
+    window.addEventListener("keydown", function (e) {
+      if (e.code === "Space" || e.key === " ") { e.preventDefault(); chop(); }
+      else if (e.key === "Escape" && modalOpen) closeModal();
+    });
+
+    // ── 팝업 ──
+    var overlay = document.getElementById("storeModal");
+    var modalOpen = false;
+    function openModal() {
+      modalOpen = true; paused = true;
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+      document.getElementById("storeBtn").focus();
+    }
+    function closeModal() {
+      modalOpen = false; paused = false;
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+      startRound();                          // 닫으면 새 판
+    }
+    document.getElementById("modalClose").addEventListener("click", closeModal);
+    document.getElementById("modalLater").addEventListener("click", closeModal);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closeModal();
+    });
+
+    // ── 렌더 ──
+    function drawSheet(s, frame, cx, baseY, size) {
+      if (!s.img) return;
+      frame = ((frame % s.frames) + s.frames) % s.frames;
+      var dw = size, dh = size * (s.fh / s.fw);
+      ctx.drawImage(s.img, frame * s.fw, 0, s.fw, s.fh,
+        cx - dw / 2, baseY - dh, dw, dh);
+    }
+
+    function drawBar(t) {
+      var bx = LW * 0.5, by = 792, bw = 560, bh = 46;
+      var left = bx - bw / 2;
+      // 트랙
+      roundRect(left, by - bh / 2, bw, bh, 12);
+      ctx.fillStyle = "#e7eef2"; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(23,32,51,.14)"; ctx.stroke();
+      // 황금 존
+      var zw = zoneHW * 2 * bw;
+      var zx = left + zoneC * bw - zw / 2;
+      roundRect(zx, by - bh / 2 + 4, zw, bh - 8, 8);
+      var g = ctx.createLinearGradient(0, by - bh / 2, 0, by + bh / 2);
+      g.addColorStop(0, "#f4d77b"); g.addColorStop(1, "#e5b83e");
+      ctx.fillStyle = g; ctx.fill();
+      // 퍼펙트 중심선
+      var pcx = left + zoneC * bw;
+      ctx.strokeStyle = "rgba(200,151,29,.6)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(pcx, by - bh / 2 + 6); ctx.lineTo(pcx, by + bh / 2 - 6); ctx.stroke();
+      // 마커
+      var mx = left + marker * bw;
+      ctx.fillStyle = "#172033";
+      ctx.beginPath();
+      ctx.moveTo(mx, by - bh / 2 - 12);
+      ctx.lineTo(mx - 9, by - bh / 2 - 1);
+      ctx.lineTo(mx + 9, by - bh / 2 - 1);
+      ctx.closePath(); ctx.fill();
+      ctx.fillRect(mx - 2.5, by - bh / 2, 5, bh);
+    }
+
+    function drawPips() {
+      var n = HITS_NEEDED, gap = 46, r = 11;
+      var startX = LW / 2 - (n - 1) * gap / 2;
+      var y = 110;
+      for (var i = 0; i < n; i++) {
+        ctx.beginPath();
+        ctx.arc(startX + i * gap, y, r, 0, Math.PI * 2);
+        if (i < hits) { ctx.fillStyle = "#e5b83e"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "#c8971d"; ctx.stroke(); }
+        else { ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(23,32,51,.2)"; ctx.stroke(); }
+      }
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function render(t) {
+      // 하늘
+      var sky = ctx.createLinearGradient(0, 0, 0, LH);
+      sky.addColorStop(0, "#bfe3f2"); sky.addColorStop(1, "#eaf7d9");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, LW, LH);
+      // 땅
+      ctx.fillStyle = "#8fca6a"; ctx.fillRect(0, 610, LW, LH - 610);
+      ctx.fillStyle = "#7bbf5a"; ctx.fillRect(0, 610, LW, 16);
+
+      drawPips();
+
+      // 나무 → 폰
+      drawSheet(sheets.tree, 0, LW * 0.5, 648, 300);
+      var pawnBaseX = LW * 0.5 + 118;        // 나무 오른쪽에 서서 도끼질
+      if (chopT > 0) {
+        var f = Math.floor((1 - chopT / CHOP_DUR) * sheets.chop.frames);
+        drawSheet(sheets.chop, f, pawnBaseX, 660, 210);
+      } else {
+        drawSheet(sheets.idle, Math.floor(t * 6), pawnBaseX, 660, 210);
+      }
+
+      drawBar(t);
+
+      // 떠오르는 +나무
+      for (var i = 0; i < floats.length; i++) {
+        var fl = floats[i];
+        var a = Math.max(0, fl.t / 0.9);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = fl.perfect ? "#c8971d" : "#2f624d";
+        ctx.font = "900 " + (fl.perfect ? 40 : 34) + "px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(fl.txt, fl.x, fl.y);
+        ctx.globalAlpha = 1;
+      }
+
+      // 중앙 안내
+      if (msgT > 0 && msg) {
+        ctx.globalAlpha = Math.min(1, msgT * 3);
+        ctx.fillStyle = "#172033";
+        ctx.font = "900 46px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(msg, LW / 2, 300);
+        ctx.globalAlpha = 1;
+      }
+
+      // 미스 붉은 점멸
+      if (flashT > 0) {
+        ctx.globalAlpha = flashT / 0.28 * 0.32;
+        ctx.fillStyle = "#d85a36";
+        ctx.fillRect(0, 0, LW, LH);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ── 루프 ──
+    var last = 0;
+    function frame(now) {
+      var dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      last = now;
+      var t = now / 1000;
+
+      if (!paused && rewardHold <= 0) {
+        marker += dir * speed * dt;
+        if (marker >= 1) { marker = 1; dir = -1; }
+        else if (marker <= 0) { marker = 0; dir = 1; }
+      }
+      if (rewardHold > 0) {
+        rewardHold -= dt;
+        if (rewardHold <= 0 && !modalOpen) startRound();
+      }
+      if (chopT > 0) chopT -= dt;
+      if (flashT > 0) flashT -= dt;
+      if (msgT > 0) msgT -= dt;
+      for (var i = floats.length - 1; i >= 0; i--) {
+        floats[i].y -= 46 * dt;
+        floats[i].t -= dt;
+        if (floats[i].t <= 0) floats.splice(i, 1);
+      }
+
+      render(t);
+      requestAnimationFrame(frame);
+    }
+
+    // ── 부트 ──
+    function loadSheets(done) {
+      var keys = Object.keys(sheets), left = keys.length;
+      keys.forEach(function (k) {
+        var s = sheets[k];
+        var im = new Image();
+        im.onload = function () { s.img = im; if (--left === 0) done(); };
+        im.onerror = function () { if (--left === 0) done(); };
+        im.src = s.src;
+      });
+    }
+
+    woodTotalEl.textContent = "0";
+    resize();
+    startRound();
+    loadSheets(function () {
+      resize();
+      requestAnimationFrame(frame);
+    });
+  })();
+  </script>
+</body>
+</html>
