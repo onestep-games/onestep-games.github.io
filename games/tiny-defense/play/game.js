@@ -30,7 +30,9 @@
   var newRecordEl = document.getElementById("newRecord");
   var retryBtn = document.getElementById("retryBtn");
   var shareBtn = document.getElementById("shareBtn");
+  var kakaoShareBtn = document.getElementById("kakaoShareBtn");
   var toast = document.getElementById("toast");
+  var chopSfx = document.getElementById("chopSfx");
 
   if (new URLSearchParams(window.location.search).has("embed")) {
     document.body.classList.add("is-embedded");
@@ -77,6 +79,7 @@
   var lastFrame = 0;
   var canvasPointer = null;
   var renderingActive = true;
+  var chopSoundPlays = 0;
 
   function readBest() {
     try {
@@ -167,6 +170,26 @@
     element.classList.add(className);
   }
 
+  function playChopSfx() {
+    if (!chopSfx) return;
+    chopSfx.pause();
+    try { chopSfx.currentTime = 0; } catch (error) { /* metadata may still be loading */ }
+    chopSfx.volume = 0.9;
+    chopSfx.preservesPitch = false;
+    chopSfx.webkitPreservesPitch = false;
+    chopSfx.playbackRate = 0.94 + Math.random() * 0.12;
+    var started = chopSfx.play();
+    if (started && typeof started.then === "function") {
+      started.then(function () {
+        chopSoundPlays += 1;
+      }).catch(function () {
+        // Browser audio policy can reject non-user-initiated test clicks; gameplay continues silently.
+      });
+    } else {
+      chopSoundPlays += 1;
+    }
+  }
+
   function chop(judgement) {
     if (!running || resultVisible || inputLock > 0 || chopT > 0) return;
 
@@ -179,6 +202,7 @@
 
     if (distance <= judgedZoneHalfWidth) {
       var perfect = distance <= judgedZoneHalfWidth * 0.3;
+      playChopSfx();
       score += 1;
       hitGlowT = perfect ? 0.48 : 0.34;
       message = perfect ? "PERFECT!" : "명중!";
@@ -784,6 +808,10 @@
     return "Tiny Defense 도끼질 챌린지 나무 " + value + "개! 도전 →";
   }
 
+  function kakaoShareMessage(value) {
+    return shareMessage(value) + " " + SHARE_URL;
+  }
+
   function downloadPng(blob, value) {
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
@@ -871,6 +899,38 @@
     fallbackShare(shareBlob);
   }
 
+  function shareKakaoCompatible() {
+    var text = kakaoShareMessage(shareScore);
+    if (navigator.share) {
+      navigator.share({
+        title: "Tiny Defense 도끼질 챌린지",
+        text: text
+      }).then(function () {
+        document.body.dataset.shareState = "messenger-shared";
+      }).catch(function (error) {
+        if (error && error.name === "AbortError") {
+          document.body.dataset.shareState = "cancelled";
+          showToast("공유를 취소했어요.");
+          return;
+        }
+        copyText(text).then(function (copied) {
+          document.body.dataset.shareState = "messenger-copy";
+          showToast(copied
+            ? "카카오톡에 붙여넣을 점수와 링크를 복사했어요."
+            : "점수와 도전 링크를 복사하지 못했어요.");
+        });
+      });
+      return;
+    }
+
+    copyText(text).then(function (copied) {
+      document.body.dataset.shareState = "messenger-copy";
+      showToast(copied
+        ? "카카오톡에 붙여넣을 점수와 링크를 복사했어요."
+        : "점수와 도전 링크를 복사하지 못했어요.");
+    });
+  }
+
   function loadSheets(done) {
     var keys = Object.keys(sheets);
     var remaining = keys.length;
@@ -935,6 +995,7 @@
   canvas.addEventListener("pointercancel", cancelCanvasTap);
   retryBtn.addEventListener("click", restart);
   shareBtn.addEventListener("click", shareResult);
+  kakaoShareBtn.addEventListener("click", shareKakaoCompatible);
   window.addEventListener("resize", resize);
   window.addEventListener("storage", function (event) {
     if (event.key !== BEST_KEY) return;
@@ -994,6 +1055,10 @@
         resultVisible: resultVisible,
         inputLocked: inputLock > 0 || chopT > 0,
         shareState: document.body.dataset.shareState || "idle",
+        chopSoundPlays: chopSoundPlays,
+        chopSoundReadyState: chopSfx ? chopSfx.readyState : 0,
+        chopSoundPaused: chopSfx ? chopSfx.paused : true,
+        chopSoundSource: chopSfx ? chopSfx.currentSrc : "",
         storeUrl: STORE_URL
       });
     }

@@ -19,7 +19,7 @@
   <title>도끼질 챌린지 · Tiny Defense | OneStep Games</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles.css?v=score-attack-1">
+  <link rel="stylesheet" href="./styles.css?v=score-attack-2">
 </head>
 <body>
   <header class="topbar">
@@ -91,6 +91,9 @@
         <button class="action-btn share-btn" id="shareBtn" type="button">
           <span aria-hidden="true">&#8599;</span> 공유하기
         </button>
+        <button class="action-btn kakao-share-btn" id="kakaoShareBtn" type="button">
+          카카오톡·메신저 공유
+        </button>
         <a class="store-btn" href="https://m.onestore.co.kr/v2/ko-kr/app/0001007324"
           target="_blank" rel="noopener">
           원스토어에서 플레이 <span aria-hidden="true">&rarr;</span>
@@ -101,6 +104,11 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="./game.js?v=score-attack-1"></script>
+  <audio id="chopSfx" preload="auto" aria-hidden="true">
+    <source src="./assets/sfx-chop.ogg" type="audio/ogg; codecs=vorbis">
+    <source src="./assets/sfx-chop.wav" type="audio/wav">
+  </audio>
+
+  <script src="./game.js?v=score-attack-2"></script>
 </body>
 </html>
