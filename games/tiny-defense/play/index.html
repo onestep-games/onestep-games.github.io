@@ -19,7 +19,7 @@
   <title>도끼질 챌린지 · Tiny Defense | OneStep Games</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles.css?v=score-attack-2">
+  <link rel="stylesheet" href="./styles.css?v=score-attack-3">
 </head>
 <body>
   <header class="topbar">
@@ -55,7 +55,7 @@
         <span class="button-label">도끼질!</span>
       </button>
       <p class="hint">
-        성공할수록 빨라지고 황금 존은 좁아집니다.<br>
+        명중 +1 · 중앙 PERFECT +2 · 성공할수록 빨라집니다.<br>
         한 번 빗나가면 끝 · <kbd>스페이스</kbd> / 화면 탭
       </p>
     </div>
@@ -91,9 +91,6 @@
         <button class="action-btn share-btn" id="shareBtn" type="button">
           <span aria-hidden="true">&#8599;</span> 공유하기
         </button>
-        <button class="action-btn kakao-share-btn" id="kakaoShareBtn" type="button">
-          카카오톡·메신저 공유
-        </button>
         <a class="store-btn" href="https://m.onestore.co.kr/v2/ko-kr/app/0001007324"
           target="_blank" rel="noopener">
           원스토어에서 플레이 <span aria-hidden="true">&rarr;</span>
@@ -105,10 +102,10 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <audio id="chopSfx" preload="auto" aria-hidden="true">
-    <source src="./assets/sfx-chop.ogg" type="audio/ogg; codecs=vorbis">
-    <source src="./assets/sfx-chop.wav" type="audio/wav">
+    <source src="./assets/sfx-chop.wav?v=score-attack-3" type="audio/wav">
+    <source src="./assets/sfx-chop.ogg?v=score-attack-3" type="audio/ogg; codecs=vorbis">
   </audio>
 
-  <script src="./game.js?v=score-attack-2"></script>
+  <script src="./game.js?v=score-attack-3"></script>
 </body>
 </html>

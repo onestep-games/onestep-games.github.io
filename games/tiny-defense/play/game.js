@@ -13,6 +13,11 @@
   var ZONE_STEP = 0.0035;
   var MIN_ZONE_HW = 0.045;
   var CHOP_DUR = 0.38;
+  var TREE_X = 415;
+  var TREE_BASE_Y = 700;
+  var PAWN_X = 292;
+  var PAWN_BASE_Y = 747;
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-3";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -30,7 +35,6 @@
   var newRecordEl = document.getElementById("newRecord");
   var retryBtn = document.getElementById("retryBtn");
   var shareBtn = document.getElementById("shareBtn");
-  var kakaoShareBtn = document.getElementById("kakaoShareBtn");
   var toast = document.getElementById("toast");
   var chopSfx = document.getElementById("chopSfx");
 
@@ -51,6 +55,7 @@
 
   var dpr = 1;
   var score = 0;
+  var hitCount = 0;
   var best = readBest();
   var marker = 0.025;
   var dir = 1;
@@ -80,6 +85,12 @@
   var canvasPointer = null;
   var renderingActive = true;
   var chopSoundPlays = 0;
+  var chopSoundMode = "loading";
+  var chopSoundError = "";
+  var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  var chopAudioContext = null;
+  var chopAudioBuffer = null;
+  var chopAudioLoadPromise = null;
 
   function readBest() {
     try {
@@ -107,8 +118,8 @@
   }
 
   function updateDifficulty() {
-    speed = currentSpeed(score);
-    zoneHW = currentZoneHW(score);
+    speed = currentSpeed(hitCount);
+    zoneHW = currentZoneHW(hitCount);
   }
 
   function rollZone() {
@@ -136,6 +147,7 @@
       resultOverlay.setAttribute("inert", "");
     }
     score = 0;
+    hitCount = 0;
     marker = 0.025;
     dir = 1;
     running = true;
@@ -170,24 +182,173 @@
     element.classList.add(className);
   }
 
-  function playChopSfx() {
+  function rememberChopSoundError(error) {
+    chopSoundError = error && error.name
+      ? error.name + (error.message ? ": " + error.message : "")
+      : String(error || "unknown audio error");
+    chopSoundMode = "error";
+  }
+
+  function decodeChopAudio(context, encodedAudio) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      function finish(buffer) {
+        if (settled) return;
+        settled = true;
+        resolve(buffer);
+      }
+      function fail(error) {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      }
+      try {
+        var decoding = context.decodeAudioData(encodedAudio.slice(0), finish, fail);
+        if (decoding && typeof decoding.then === "function") decoding.then(finish, fail);
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+
+  function ensureChopAudio() {
+    if (!AudioContextClass) {
+      if (chopSoundMode === "loading") chopSoundMode = "media-ready";
+      return null;
+    }
+    if (chopAudioContext && chopAudioContext.state === "closed") {
+      chopAudioContext = null;
+      chopAudioBuffer = null;
+      chopAudioLoadPromise = null;
+    }
+    if (!chopAudioContext) {
+      try {
+        chopAudioContext = new AudioContextClass();
+      } catch (error) {
+        rememberChopSoundError(error);
+        return null;
+      }
+    }
+    if (!chopAudioLoadPromise && window.fetch) {
+      chopAudioLoadPromise = window.fetch(CHOP_AUDIO_URL, { cache: "force-cache" })
+        .then(function (response) {
+          if (!response.ok) throw new Error("chop audio HTTP " + response.status);
+          return response.arrayBuffer();
+        })
+        .then(function (encodedAudio) {
+          return decodeChopAudio(chopAudioContext, encodedAudio);
+        })
+        .then(function (buffer) {
+          chopAudioBuffer = buffer;
+          chopSoundMode = "ready";
+          chopSoundError = "";
+          return buffer;
+        })
+        .catch(function (error) {
+          rememberChopSoundError(error);
+          return null;
+        });
+    }
+    return chopAudioContext;
+  }
+
+  function unlockChopAudio() {
+    var context = ensureChopAudio();
+    if (!context || context.state === "running" || context.state === "closed") return;
+    try {
+      var silentSource = context.createBufferSource();
+      silentSource.buffer = context.createBuffer(1, 1, context.sampleRate);
+      silentSource.connect(context.destination);
+      silentSource.start(0);
+      silentSource.onended = function () { silentSource.disconnect(); };
+    } catch (error) {
+      rememberChopSoundError(error);
+    }
+    try {
+      var resumed = context.resume();
+      if (resumed && typeof resumed.catch === "function") {
+        resumed.catch(rememberChopSoundError);
+      }
+    } catch (error) {
+      rememberChopSoundError(error);
+    }
+  }
+
+  function playDecodedChop(context) {
+    if (!context || !chopAudioBuffer || context.state !== "running") return false;
+    try {
+      var source = context.createBufferSource();
+      var gain = context.createGain();
+      source.buffer = chopAudioBuffer;
+      source.playbackRate.value = 0.94 + Math.random() * 0.12;
+      gain.gain.value = 0.9;
+      source.connect(gain);
+      gain.connect(context.destination);
+      source.onended = function () {
+        source.disconnect();
+        gain.disconnect();
+      };
+      source.start(0);
+      chopSoundPlays += 1;
+      chopSoundMode = "webaudio";
+      chopSoundError = "";
+      return true;
+    } catch (error) {
+      rememberChopSoundError(error);
+      return false;
+    }
+  }
+
+  function playMediaChop() {
     if (!chopSfx) return;
     chopSfx.pause();
     try { chopSfx.currentTime = 0; } catch (error) { /* metadata may still be loading */ }
     chopSfx.volume = 0.9;
-    chopSfx.preservesPitch = false;
-    chopSfx.webkitPreservesPitch = false;
-    chopSfx.playbackRate = 0.94 + Math.random() * 0.12;
-    var started = chopSfx.play();
-    if (started && typeof started.then === "function") {
-      started.then(function () {
-        chopSoundPlays += 1;
-      }).catch(function () {
-        // Browser audio policy can reject non-user-initiated test clicks; gameplay continues silently.
-      });
-    } else {
-      chopSoundPlays += 1;
+    chopSfx.muted = false;
+    chopSfx.playbackRate = 1;
+    var settled = false;
+    function cleanup() {
+      chopSfx.removeEventListener("playing", confirmPlayback);
+      chopSfx.removeEventListener("error", rejectPlayback);
     }
+    function confirmPlayback() {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      chopSoundPlays += 1;
+      chopSoundMode = "media";
+      chopSoundError = "";
+    }
+    function rejectPlayback(error) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (chopSfx.error) {
+        rememberChopSoundError({
+          name: "MediaError " + chopSfx.error.code,
+          message: chopSfx.error.message || "HTML audio playback failed"
+        });
+      } else {
+        rememberChopSoundError(error);
+      }
+    }
+    chopSfx.addEventListener("playing", confirmPlayback);
+    chopSfx.addEventListener("error", rejectPlayback);
+    try {
+      var started = chopSfx.play();
+      if (started && typeof started.then === "function") {
+        started.then(confirmPlayback).catch(rejectPlayback);
+      }
+    } catch (error) {
+      rejectPlayback(error);
+    }
+  }
+
+  function playChopSfx() {
+    var context = ensureChopAudio();
+    if (playDecodedChop(context)) return;
+    playMediaChop();
+    unlockChopAudio();
   }
 
   function chop(judgement) {
@@ -199,18 +360,27 @@
     var distance = Math.abs(judgedMarker - judgedZoneCenter);
     chopT = CHOP_DUR;
     inputLock = CHOP_DUR * 0.9;
+    playChopSfx();
 
     if (distance <= judgedZoneHalfWidth) {
       var perfect = distance <= judgedZoneHalfWidth * 0.3;
-      playChopSfx();
-      score += 1;
+      var gainedWood = perfect ? 2 : 1;
+      score += gainedWood;
+      hitCount += 1;
       hitGlowT = perfect ? 0.48 : 0.34;
       message = perfect ? "PERFECT!" : "명중!";
       messageT = perfect ? 0.64 : 0.46;
       messagePerfect = perfect;
       if (perfect && !reducedMotion) shakeT = 0.13;
       spawnWoodChips(perfect);
-      floats.push({ x: 374, y: 475, life: 0.92, maxLife: 0.92, perfect: perfect });
+      floats.push({
+        x: TREE_X - 29,
+        y: TREE_BASE_Y - 179,
+        life: 0.92,
+        maxLife: 0.92,
+        perfect: perfect,
+        amount: gainedWood
+      });
       replayAnimation(woodBadge, "score-pop");
       updateDifficulty();
       rollZone();
@@ -284,8 +454,8 @@
       var angle = -Math.PI * (0.13 + Math.random() * 0.74);
       var velocity = 105 + Math.random() * (perfect ? 155 : 105);
       particles.push({
-        x: 372 + Math.random() * 25,
-        y: 525 + Math.random() * 24,
+        x: TREE_X - 52 + Math.random() * 25,
+        y: TREE_BASE_Y - 129 + Math.random() * 24,
         vx: Math.cos(angle) * velocity,
         vy: Math.sin(angle) * velocity,
         size: 5 + Math.random() * 9,
@@ -446,18 +616,17 @@
     ctx.globalAlpha = 0.23;
     ctx.fillStyle = "#284534";
     ctx.beginPath();
-    ctx.ellipse(360, 660, 175, 29, 0, 0, Math.PI * 2);
+    ctx.ellipse(378, 706, 175, 29, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    drawSheet(sheets.tree, 0, 345, 654, 270);
+    drawSheet(sheets.tree, 0, TREE_X, TREE_BASE_Y, 270);
 
-    var pawnX = 468;
     if (chopT > 0) {
       var chopProgress = Math.max(0, Math.min(0.999, 1 - chopT / CHOP_DUR));
-      drawSheet(sheets.chop, Math.floor(chopProgress * sheets.chop.frames), pawnX, 668, 230);
+      drawSheet(sheets.chop, Math.floor(chopProgress * sheets.chop.frames), PAWN_X, PAWN_BASE_Y, 230);
     } else {
-      drawSheet(sheets.idle, Math.floor(time * 5.5), pawnX, 668, 230);
+      drawSheet(sheets.idle, Math.floor(time * 5.5), PAWN_X, PAWN_BASE_Y, 230);
     }
 
     drawParticles();
@@ -565,6 +734,7 @@
   function drawFloats() {
     for (var i = 0; i < floats.length; i += 1) {
       var item = floats[i];
+      var amountText = "+" + (item.amount || 1);
       var alpha = Math.min(1, item.life * 2.4);
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -572,9 +742,9 @@
       ctx.font = "950 " + (item.perfect ? 46 : 40) + "px Inter, Pretendard, sans-serif";
       ctx.lineWidth = 7;
       ctx.strokeStyle = "rgba(249,246,236,.88)";
-      ctx.strokeText("+1", item.x, item.y);
+      ctx.strokeText(amountText, item.x, item.y);
       ctx.fillStyle = item.perfect ? "#b47708" : "#2f624d";
-      ctx.fillText("+1", item.x, item.y);
+      ctx.fillText(amountText, item.x, item.y);
       ctx.restore();
     }
   }
@@ -798,18 +968,10 @@
       .catch(function () {
         if (generation !== shareGeneration) return null;
         shareBtn.disabled = false;
-        shareBtn.textContent = "링크 공유";
+        shareBtn.textContent = "카드 다시 만들기";
         document.body.dataset.shareState = "error";
         return null;
       });
-  }
-
-  function shareMessage(value) {
-    return "Tiny Defense 도끼질 챌린지 나무 " + value + "개! 도전 →";
-  }
-
-  function kakaoShareMessage(value) {
-    return shareMessage(value) + " " + SHARE_URL;
   }
 
   function downloadPng(blob, value) {
@@ -868,19 +1030,13 @@
 
   function shareResult() {
     if (!shareBlob) {
-      copyText(SHARE_URL).then(function (copied) {
-        showToast(copied ? "도전 링크를 복사했어요." : "주소창에서 도전 링크를 복사해 주세요.");
-      });
+      prepareShareCard();
+      showToast("결과 카드를 다시 만들고 있어요.");
       return;
     }
 
     var file = new File([shareBlob], "tiny-defense-axe-" + shareScore + ".png", { type: "image/png" });
-    var payload = {
-      title: "Tiny Defense 도끼질 챌린지",
-      text: shareMessage(shareScore),
-      url: SHARE_URL,
-      files: [file]
-    };
+    var payload = { files: [file] };
 
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share(payload).then(function () {
@@ -897,38 +1053,6 @@
     }
 
     fallbackShare(shareBlob);
-  }
-
-  function shareKakaoCompatible() {
-    var text = kakaoShareMessage(shareScore);
-    if (navigator.share) {
-      navigator.share({
-        title: "Tiny Defense 도끼질 챌린지",
-        text: text
-      }).then(function () {
-        document.body.dataset.shareState = "messenger-shared";
-      }).catch(function (error) {
-        if (error && error.name === "AbortError") {
-          document.body.dataset.shareState = "cancelled";
-          showToast("공유를 취소했어요.");
-          return;
-        }
-        copyText(text).then(function (copied) {
-          document.body.dataset.shareState = "messenger-copy";
-          showToast(copied
-            ? "카카오톡에 붙여넣을 점수와 링크를 복사했어요."
-            : "점수와 도전 링크를 복사하지 못했어요.");
-        });
-      });
-      return;
-    }
-
-    copyText(text).then(function (copied) {
-      document.body.dataset.shareState = "messenger-copy";
-      showToast(copied
-        ? "카카오톡에 붙여넣을 점수와 링크를 복사했어요."
-        : "점수와 도전 링크를 복사하지 못했어요.");
-    });
   }
 
   function loadSheets(done) {
@@ -993,9 +1117,10 @@
   canvas.addEventListener("pointerdown", beginCanvasTap);
   canvas.addEventListener("pointerup", finishCanvasTap);
   canvas.addEventListener("pointercancel", cancelCanvasTap);
+  window.addEventListener(window.PointerEvent ? "pointerdown" : "touchstart", unlockChopAudio, { capture: true, passive: true });
+  window.addEventListener("keydown", unlockChopAudio, true);
   retryBtn.addEventListener("click", restart);
   shareBtn.addEventListener("click", shareResult);
-  kakaoShareBtn.addEventListener("click", shareKakaoCompatible);
   window.addEventListener("resize", resize);
   window.addEventListener("storage", function (event) {
     if (event.key !== BEST_KEY) return;
@@ -1045,6 +1170,7 @@
     value: function () {
       return Object.freeze({
         score: score,
+        hitCount: hitCount,
         best: best,
         marker: marker,
         zoneCenter: zoneC,
@@ -1059,6 +1185,10 @@
         chopSoundReadyState: chopSfx ? chopSfx.readyState : 0,
         chopSoundPaused: chopSfx ? chopSfx.paused : true,
         chopSoundSource: chopSfx ? chopSfx.currentSrc : "",
+        chopSoundMode: chopSoundMode,
+        chopSoundError: chopSoundError,
+        chopAudioContextState: chopAudioContext ? chopAudioContext.state : "unavailable",
+        chopAudioBufferDuration: chopAudioBuffer ? chopAudioBuffer.duration : 0,
         storeUrl: STORE_URL
       });
     }
@@ -1070,6 +1200,7 @@
   rollZone();
   resize();
   document.body.dataset.shareState = "idle";
+  ensureChopAudio();
   loadSheets(function () {
     resize();
     window.requestAnimationFrame(frame);
