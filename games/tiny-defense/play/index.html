@@ -35,7 +35,7 @@
       if (value === "en" || value === "ja" || value === "ko") document.documentElement.lang = value;
     }());
   </script>
-  <link rel="stylesheet" href="./styles.css?v=score-attack-8">
+  <link rel="stylesheet" href="./styles.css?v=score-attack-9">
 </head>
 <body>
   <header class="topbar">
@@ -108,11 +108,16 @@
         <button class="action-btn share-btn" id="shareBtn" type="button">
           <span aria-hidden="true">&#8599;</span> 공유하기
         </button>
-        <button class="action-btn save-btn" id="savePngBtn" type="button" hidden>PNG 저장</button>
+        <button class="action-btn save-btn" id="savePngBtn" type="button" hidden>이미지 보기</button>
         <a class="store-btn" href="https://m.onestore.co.kr/v2/ko-kr/app/0001007324"
           target="_blank" rel="noopener">
           <span id="storeButtonLabel">원스토어에서 플레이</span> <span aria-hidden="true">&rarr;</span>
         </a>
+      </div>
+
+      <div class="save-panel" id="savePanel" hidden>
+        <p id="savePanelHint">아래 결과 이미지를 길게 눌러 저장하거나 공유하세요.</p>
+        <img id="savePreview" alt="Tiny Defense 도끼질 챌린지 결과 이미지">
       </div>
     </article>
   </div>
@@ -120,10 +125,10 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <audio id="chopSfx" preload="auto" aria-hidden="true">
-    <source src="./assets/sfx-chop.wav?v=score-attack-8" type="audio/wav">
-    <source src="./assets/sfx-chop.ogg?v=score-attack-8" type="audio/ogg; codecs=vorbis">
+    <source src="./assets/sfx-chop.wav?v=score-attack-9" type="audio/wav">
+    <source src="./assets/sfx-chop.ogg?v=score-attack-9" type="audio/ogg; codecs=vorbis">
   </audio>
 
-  <script src="./game.js?v=score-attack-8"></script>
+  <script src="./game.js?v=score-attack-9"></script>
 </body>
 </html>
