@@ -129,9 +129,9 @@ canvas {
   box-shadow:
     0 24px 60px -30px rgba(17, 26, 48, 0.72),
     0 2px 0 rgba(255, 255, 255, 0.7) inset;
-  cursor: pointer;
+  cursor: default;
   image-rendering: pixelated;
-  touch-action: manipulation;
+  touch-action: auto;
 }
 
 .hud {

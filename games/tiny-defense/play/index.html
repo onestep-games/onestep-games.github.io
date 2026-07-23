@@ -35,7 +35,7 @@
       if (value === "en" || value === "ja" || value === "ko") document.documentElement.lang = value;
     }());
   </script>
-  <link rel="stylesheet" href="./styles.css?v=score-attack-13">
+  <link rel="stylesheet" href="./styles.css?v=score-attack-14">
 </head>
 <body>
   <header class="topbar">
@@ -49,8 +49,8 @@
 
   <main class="game-shell">
     <div class="stage">
-      <canvas id="game" width="720" height="960" tabindex="0" role="button"
-        aria-label="Tiny Defense 도끼질 챌린지. 게임 시작을 누른 뒤, 황금 존에 마커가 들어왔을 때 화면이나 도끼질 버튼을 누르세요."></canvas>
+      <canvas id="game" width="720" height="960"
+        aria-label="Tiny Defense 도끼질 챌린지. 게임 시작을 누른 뒤, 황금 존에 마커가 들어왔을 때 도끼질 버튼을 누르세요."></canvas>
 
       <div class="hud" id="scoreHud" aria-label="현재 기록">
         <div class="hud-pill best-pill">
@@ -72,7 +72,7 @@
       </button>
       <p class="hint" id="gameHint">
         명중 +1 · 중앙 PERFECT +2 · 성공할수록 빨라집니다.<br>
-        한 번 빗나가면 끝 · <kbd>스페이스</kbd> / 화면 탭
+        한 번 빗나가면 끝 · 도끼질 버튼을 누르세요
       </p>
     </div>
   </main>
@@ -125,10 +125,10 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <audio id="chopSfx" preload="auto" aria-hidden="true">
-    <source src="./assets/sfx-chop.wav?v=score-attack-13" type="audio/wav">
-    <source src="./assets/sfx-chop.ogg?v=score-attack-13" type="audio/ogg; codecs=vorbis">
+    <source src="./assets/sfx-chop.wav?v=score-attack-14" type="audio/wav">
+    <source src="./assets/sfx-chop.ogg?v=score-attack-14" type="audio/ogg; codecs=vorbis">
   </audio>
 
-  <script src="./game.js?v=score-attack-13"></script>
+  <script src="./game.js?v=score-attack-14"></script>
 </body>
 </html>

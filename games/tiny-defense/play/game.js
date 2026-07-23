@@ -17,7 +17,7 @@
       backUrl: "/games/tiny-defense/",
       shareUrl: "https://onestep-studio.github.io/games/tiny-defense/#axe-challenge",
       cardUrl: "onestep-studio.github.io/games/tiny-defense",
-      canvasLabel: "Tiny Defense 도끼질 챌린지. 게임 시작을 누른 뒤, 황금 존에 마커가 들어왔을 때 화면이나 도끼질 버튼을 누르세요.",
+      canvasLabel: "Tiny Defense 도끼질 챌린지. 게임 시작을 누른 뒤, 황금 존에 마커가 들어왔을 때 도끼질 버튼을 누르세요.",
       hudLabel: "현재 기록",
       woodLabel: "나무",
       startKicker: "준비되면",
@@ -27,7 +27,7 @@
       startStatus: "도전이 시작됐습니다. 최고 기록 {best}개.",
       chopKicker: "황금 존에 맞춰",
       chopLabel: "도끼질!",
-      hintHtml: "명중 +1 · 중앙 PERFECT +2 · 성공할수록 빨라집니다.<br>한 번 빗나가면 끝 · <kbd>스페이스</kbd> / 화면 탭",
+      hintHtml: "명중 +1 · 중앙 PERFECT +2 · 성공할수록 빨라집니다.<br>한 번 빗나가면 끝 · 도끼질 버튼을 누르세요",
       resultEyebrow: "AXE CHALLENGE · RESULT",
       newRecord: "신기록!",
       resultScoreLabel: "이번 기록",
@@ -92,7 +92,7 @@
       backUrl: "/en/games/tiny-defense/",
       shareUrl: "https://onestep-studio.github.io/en/games/tiny-defense/#axe-challenge",
       cardUrl: "onestep-studio.github.io/en/games/tiny-defense",
-      canvasLabel: "Tiny Defense Axe Challenge. Press Start Game, then tap the screen or press the Chop button when the marker enters the gold zone.",
+      canvasLabel: "Tiny Defense Axe Challenge. Press Start Game, then press the Chop button when the marker enters the gold zone.",
       hudLabel: "Current score",
       woodLabel: "WOOD",
       startKicker: "WHEN YOU'RE READY",
@@ -102,7 +102,7 @@
       startStatus: "Challenge started. Best: {best} wood.",
       chopKicker: "TIME THE GOLD ZONE",
       chopLabel: "CHOP!",
-      hintHtml: "HIT +1 · CENTER PERFECT +2 · FASTER WITH EVERY HIT<br>ONE MISS ENDS THE RUN · <kbd>SPACE</kbd> / TAP",
+      hintHtml: "HIT +1 · CENTER PERFECT +2 · FASTER WITH EVERY HIT<br>ONE MISS ENDS THE RUN · PRESS THE CHOP BUTTON",
       resultEyebrow: "AXE CHALLENGE · RESULT",
       newRecord: "NEW BEST!",
       resultScoreLabel: "THIS RUN",
@@ -167,7 +167,7 @@
       backUrl: "/ja/games/tiny-defense/",
       shareUrl: "https://onestep-studio.github.io/ja/games/tiny-defense/#axe-challenge",
       cardUrl: "onestep-studio.github.io/ja/games/tiny-defense",
-      canvasLabel: "Tiny Defense 木こりチャレンジ。「ゲーム開始」を押したあと、マーカーがゴールドゾーンに入っている間に、画面または「斧を振る」ボタンを押してください。",
+      canvasLabel: "Tiny Defense 木こりチャレンジ。「ゲーム開始」を押したあと、マーカーがゴールドゾーンに入っている間に「斧を振る」ボタンを押してください。",
       hudLabel: "現在のスコア",
       woodLabel: "丸太",
       startKicker: "準備ができたら",
@@ -177,7 +177,7 @@
       startStatus: "チャレンジ開始。ベストスコアは{best}本です。",
       chopKicker: "ゴールドゾーンに合わせて",
       chopLabel: "斧を振る！",
-      hintHtml: "命中 +1 · 中央 PERFECT +2 · 成功するほど速くなります。<br>一度でも外せば終了 · <kbd>スペース</kbd> / 画面をタップ",
+      hintHtml: "命中 +1 · 中央 PERFECT +2 · 成功するほど速くなります。<br>一度でも外せば終了 · 「斧を振る」ボタンを押してください",
       resultEyebrow: "AXE CHALLENGE · RESULT",
       newRecord: "新記録！",
       resultScoreLabel: "今回のスコア",
@@ -255,7 +255,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-13";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-14";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -1606,14 +1606,6 @@
     activateGameInput();
   }
 
-  function handleCanvasPointerDown(event) {
-    if (event.isPrimary === false) return;
-    if (event.button !== undefined && event.button !== 0) return;
-    if (!started) return;
-    event.preventDefault();
-    chop();
-  }
-
   chopBtn.addEventListener("pointerdown", handleChopPointerDown);
   chopBtn.addEventListener("pointerup", function () {
     window.setTimeout(function () { suppressPointerClick = false; }, 0);
@@ -1626,7 +1618,6 @@
     if (event.repeat) return;
     activateGameInput();
   });
-  canvas.addEventListener("pointerdown", handleCanvasPointerDown);
   window.addEventListener(window.PointerEvent ? "pointerdown" : "touchstart", unlockChopAudio, { capture: true, passive: true });
   window.addEventListener("keydown", unlockChopAudio, true);
   retryBtn.addEventListener("click", restart);
@@ -1655,16 +1646,6 @@
         }
       }
       return;
-    }
-    var interactiveTarget = event.target && event.target.closest
-      ? event.target.closest("button, a, input, select, textarea")
-      : null;
-    var canvasEnter = event.key === "Enter" && event.target === canvas;
-    var gameSpace = (event.code === "Space" || event.key === " ") && !interactiveTarget;
-    if (!resultVisible && (canvasEnter || gameSpace)) {
-      event.preventDefault();
-      if (event.repeat) return;
-      activateGameInput();
     }
   });
 
