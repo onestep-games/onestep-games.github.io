@@ -74,6 +74,7 @@
       imageHint: "아래 결과 이미지를 길게 눌러 저장하거나 공유하세요.",
       imageOpened: "새 창에 이미지를 열었어요. 저장이 안 되면 스크린샷 또는 외부 브라우저를 사용해주세요.",
       imageOpenBlocked: "웹뷰에서 새 창 열기가 막혔어요. 스크린샷 또는 외부 브라우저를 사용해주세요.",
+      imageWindowHint: "이미지를 꾹 눌러서 다운로드!",
       sharePreparing: "카드 준비 중…",
       shareRebuild: "카드 다시 만들기",
       shareRebuilding: "결과 카드를 다시 만들고 있어요.",
@@ -148,6 +149,7 @@
       imageHint: "Long-press the result image below to save or share it.",
       imageOpened: "Opened the image in a new window. If saving fails, use a screenshot or an external browser.",
       imageOpenBlocked: "This webview blocked the new image window. Use a screenshot or open the page in your browser.",
+      imageWindowHint: "Long-press the image to download it.",
       sharePreparing: "Preparing card…",
       shareRebuild: "Rebuild card",
       shareRebuilding: "Rebuilding your result card.",
@@ -222,6 +224,7 @@
       imageHint: "下のリザルト画像を長押しして保存または共有してください。",
       imageOpened: "新しいウィンドウで画像を開きました。保存できない場合はスクリーンショットまたは外部ブラウザをご利用ください。",
       imageOpenBlocked: "アプリ内ブラウザで新しい画像ウィンドウがブロックされました。スクリーンショットまたは外部ブラウザをご利用ください。",
+      imageWindowHint: "画像を長押ししてダウンロード！",
       sharePreparing: "リザルトカードを準備中…",
       shareRebuild: "カードを再作成",
       shareRebuilding: "リザルトカードを再作成しています。",
@@ -252,7 +255,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-12";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-13";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -1394,16 +1397,11 @@
       return;
     }
 
-    var imageWindow = isInAppBrowser() ? openImageWindowShell() : null;
-
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     imagePreviewUrl = URL.createObjectURL(shareBlob);
     imagePreview.src = imagePreviewUrl;
     imagePanel.hidden = false;
     document.body.dataset.shareState = "image-visible";
-    if (isInAppBrowser()) {
-      showImageInWindow(imageWindow);
-    }
     window.setTimeout(function () {
       imagePanel.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
     }, 40);
@@ -1460,6 +1458,18 @@
     });
   }
 
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (char) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char];
+    });
+  }
+
   function writeImageWindow(opened, dataUrl) {
     if (!opened) return false;
 
@@ -1469,8 +1479,8 @@
         '<!doctype html><html><head><meta charset="utf-8">' +
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
         '<title>Tiny Defense</title>' +
-        '<style>html,body{margin:0;min-height:100%;background:#121827;}body{display:grid;place-items:center;padding:16px;box-sizing:border-box;}img{display:block;width:min(100%,540px);height:auto;box-shadow:0 18px 48px rgba(0,0,0,.35);}</style>' +
-        '</head><body><img src="' + dataUrl + '" alt=""></body></html>'
+        '<style>html,body{margin:0;min-height:100%;background:#121827;color:#fffaf0;font-family:Arial,sans-serif;}body{display:grid;place-items:center;padding:16px;box-sizing:border-box;}main{width:min(100%,540px);text-align:center;}img{display:block;width:100%;height:auto;box-shadow:0 18px 48px rgba(0,0,0,.35);}p{margin:18px 0 0;font-size:20px;font-weight:900;line-height:1.35;}</style>' +
+        '</head><body><main><img src="' + dataUrl + '" alt=""><p>' + escapeHtml(copy.imageWindowHint) + '</p></main></body></html>'
       );
       opened.document.close();
       return true;
@@ -1523,6 +1533,14 @@
     if (!shareBlob) {
       prepareShareCard();
       showToast(copy.shareRebuilding);
+      return;
+    }
+
+    if (isInAppBrowser()) {
+      var imageWindow = openImageWindowShell();
+      showResultImage();
+      showImageInWindow(imageWindow);
+      document.body.dataset.shareState = "image-window";
       return;
     }
 
