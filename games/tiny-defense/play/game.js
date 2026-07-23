@@ -256,6 +256,7 @@
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
   var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-14";
+  var resultSfxApi = window.TinyDefenseResultSfx || null;
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -339,6 +340,14 @@
   var chopAudioContext = null;
   var chopAudioBuffer = null;
   var chopAudioLoadPromise = null;
+  var resultSoundPlays = 0;
+  var resultSoundMode = "idle";
+  var resultSoundKey = "";
+  var resultSoundError = "";
+  var resultAudioBuffers = {};
+  var resultAudioLoadPromises = {};
+  var resultMediaElements = {};
+  var resultAudioProbe = document.createElement("audio");
 
   function formatText(template, values) {
     return template.replace(/\{([a-z]+)\}/gi, function (match, key) {
@@ -417,6 +426,7 @@
     setChopButtonMode();
     gameStatus.textContent = formatText(copy.startStatus, { best: best });
     ensureChopAudio();
+    preloadResultSfx();
   }
 
   function readBest() {
@@ -683,6 +693,167 @@
     unlockChopAudio();
   }
 
+  function rememberResultSoundError(error) {
+    resultSoundError = error && error.name
+      ? error.name + (error.message ? ": " + error.message : "")
+      : String(error || "unknown result audio error");
+    resultSoundMode = "error";
+  }
+
+  function resultSfxEntries() {
+    return resultSfxApi && Array.isArray(resultSfxApi.RESULT_SFX_TIERS)
+      ? resultSfxApi.RESULT_SFX_TIERS
+      : [];
+  }
+
+  function resultSfxForScore(value) {
+    return resultSfxApi && typeof resultSfxApi.resultSfxForScore === "function"
+      ? resultSfxApi.resultSfxForScore(value)
+      : null;
+  }
+
+  function shareRecordLabel(label) {
+    return resultSfxApi && typeof resultSfxApi.shareRecordLabel === "function"
+      ? resultSfxApi.shareRecordLabel(label)
+      : "✦ " + String(label || "").trim();
+  }
+
+  function playableResultSource(tier) {
+    if (!tier) return "";
+    if (resultAudioProbe && typeof resultAudioProbe.canPlayType === "function") {
+      if (tier.wav && resultAudioProbe.canPlayType("audio/wav")) return tier.wav;
+      if (tier.ogg && resultAudioProbe.canPlayType('audio/ogg; codecs="vorbis"')) return tier.ogg;
+    }
+    return tier.wav || tier.ogg || "";
+  }
+
+  function ensureResultMedia(tier) {
+    if (!tier || !tier.key) return null;
+    if (!resultMediaElements[tier.key]) {
+      var audio = new Audio();
+      audio.preload = "auto";
+      audio.src = playableResultSource(tier);
+      audio.volume = tier.volume || 0.88;
+      resultMediaElements[tier.key] = audio;
+      try { audio.load(); } catch (error) { rememberResultSoundError(error); }
+    }
+    return resultMediaElements[tier.key];
+  }
+
+  function ensureResultAudio(tier) {
+    var context = ensureChopAudio();
+    ensureResultMedia(tier);
+    if (!tier || !tier.key || !context || !window.fetch) return context;
+    if (!resultAudioLoadPromises[tier.key] && !resultAudioBuffers[tier.key]) {
+      resultAudioLoadPromises[tier.key] = window.fetch(tier.wav || tier.ogg, { cache: "force-cache" })
+        .then(function (response) {
+          if (!response.ok) throw new Error("result audio HTTP " + response.status);
+          return response.arrayBuffer();
+        })
+        .then(function (encodedAudio) {
+          return decodeChopAudio(context, encodedAudio);
+        })
+        .then(function (buffer) {
+          resultAudioBuffers[tier.key] = buffer;
+          if (resultSoundMode === "loading") resultSoundMode = "ready";
+          resultSoundError = "";
+          return buffer;
+        })
+        .catch(function (error) {
+          rememberResultSoundError(error);
+          return null;
+        });
+    }
+    return context;
+  }
+
+  function preloadResultSfx() {
+    var tiers = resultSfxEntries();
+    for (var i = 0; i < tiers.length; i += 1) {
+      ensureResultAudio(tiers[i]);
+    }
+    if (tiers.length && resultSoundMode === "idle") resultSoundMode = "loading";
+  }
+
+  function playDecodedResult(context, tier) {
+    if (!context || !tier || !resultAudioBuffers[tier.key] || context.state !== "running") return false;
+    try {
+      var source = context.createBufferSource();
+      var gain = context.createGain();
+      source.buffer = resultAudioBuffers[tier.key];
+      gain.gain.value = tier.volume || 0.88;
+      source.connect(gain);
+      gain.connect(context.destination);
+      source.onended = function () {
+        source.disconnect();
+        gain.disconnect();
+      };
+      source.start(0);
+      resultSoundPlays += 1;
+      resultSoundMode = "webaudio";
+      resultSoundError = "";
+      return true;
+    } catch (error) {
+      rememberResultSoundError(error);
+      return false;
+    }
+  }
+
+  function playMediaResult(tier) {
+    var audio = ensureResultMedia(tier);
+    if (!audio) return;
+    audio.pause();
+    try { audio.currentTime = 0; } catch (error) { /* metadata may still be loading */ }
+    audio.volume = tier.volume || 0.88;
+    audio.muted = false;
+    var settled = false;
+    function cleanup() {
+      audio.removeEventListener("playing", confirmPlayback);
+      audio.removeEventListener("error", rejectPlayback);
+    }
+    function confirmPlayback() {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resultSoundPlays += 1;
+      resultSoundMode = "media";
+      resultSoundError = "";
+    }
+    function rejectPlayback(error) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (audio.error) {
+        rememberResultSoundError({
+          name: "MediaError " + audio.error.code,
+          message: audio.error.message || "HTML audio playback failed"
+        });
+      } else {
+        rememberResultSoundError(error);
+      }
+    }
+    audio.addEventListener("playing", confirmPlayback);
+    audio.addEventListener("error", rejectPlayback);
+    try {
+      var started = audio.play();
+      if (started && typeof started.then === "function") {
+        started.then(confirmPlayback).catch(rejectPlayback);
+      }
+    } catch (error) {
+      rejectPlayback(error);
+    }
+  }
+
+  function playResultSfx() {
+    var tier = resultSfxForScore(score);
+    if (!tier) return;
+    resultSoundKey = tier.key;
+    var context = ensureResultAudio(tier);
+    if (playDecodedResult(context, tier)) return;
+    playMediaResult(tier);
+    unlockChopAudio();
+  }
+
   function chop() {
     if (!running || resultVisible || inputLock > 0 || chopT > 0) return;
 
@@ -777,6 +948,7 @@
   }
 
   function openResult() {
+    playResultSfx();
     resultVisible = true;
     resultOverlay.removeAttribute("inert");
     resultOverlay.setAttribute("aria-hidden", "false");
@@ -1256,7 +1428,7 @@
       cardCtx.fillText(copy.cardEyebrow, 540, 368);
 
       if (isRecord) {
-        var recordText = copy.newRecord;
+        var recordText = shareRecordLabel(copy.newRecord);
         cardCtx.font = "900 28px " + FONT_STACK;
         var recordWidth = Math.ceil(cardCtx.measureText(recordText).width) + 58;
         var recordX = 540 - recordWidth / 2;
@@ -1687,6 +1859,10 @@
         chopSoundError: chopSoundError,
         chopAudioContextState: chopAudioContext ? chopAudioContext.state : "unavailable",
         chopAudioBufferDuration: chopAudioBuffer ? chopAudioBuffer.duration : 0,
+        resultSoundPlays: resultSoundPlays,
+        resultSoundMode: resultSoundMode,
+        resultSoundKey: resultSoundKey,
+        resultSoundError: resultSoundError,
         shareUrl: SHARE_URL,
         storeUrl: STORE_URL
       });
@@ -1703,6 +1879,7 @@
   document.body.dataset.shareState = "idle";
   gameStatus.textContent = copy.readyStatus;
   ensureChopAudio();
+  preloadResultSfx();
   loadSheets(function () {
     resize();
     window.requestAnimationFrame(frame);

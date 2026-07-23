@@ -1,0 +1,18 @@
+Result music source:
+Chequered Ink 400 Sounds Pack
+https://ci.itch.io/400-sounds-pack
+
+License:
+Free for commercial use under the terms published on the itch.io page:
+"You may use these game assets for ANY and ALL uses including commercial use, with or without giving credit, except that you may not sell or redistribute the unaltered assets as your own game assets."
+
+Source files used:
+- Retro/lose.wav -> music-result-disaster.wav / music-result-disaster.ogg
+- Musical Effects/8_bit_defeated.wav -> music-result-fail.wav / music-result-fail.ogg
+- Musical Effects/8_bit_level_complete.wav -> music-result-success.wav / music-result-success.ogg
+- Musical Effects/brass_level_complete.wav -> music-result-great-success.wav / music-result-great-success.ogg
+- Musical Effects/grand_piano_level_complete.wav -> music-result-legend.wav / music-result-legend.ogg
+- Other/applause.wav -> music-result-legendary.wav / music-result-legendary.ogg
+
+The project stores normalized/converted result clips, not the original asset pack.
+Credit is not required by the license, but Chequered Ink is credited here for traceability.
