@@ -1347,14 +1347,16 @@
     });
   }
 
-  function createSharePayload(files) {
+  function createSharePayload(files, includeLink) {
+    var hasFiles = Boolean(files && files.length);
+    var shareText = format(copy.shareText, { score: shareScore, best: shareBest });
     var payload = {
       title: copy.shareTitle,
-      text: format(copy.shareText, { score: shareScore, best: shareBest }),
-      url: SHARE_URL
+      text: includeLink ? shareText + "\n" + SHARE_URL : shareText
     };
 
-    if (files && files.length) payload.files = files;
+    if (hasFiles) payload.files = files;
+    else if (includeLink) payload.url = SHARE_URL;
     return payload;
   }
 
@@ -1376,11 +1378,11 @@
 
     var file = new File([shareBlob], "tiny-defense-axe-" + shareScore + ".png", { type: "image/png" });
     var files = [file];
-    var linkPayload = createSharePayload();
-    var filePayload = createSharePayload(files);
+    var includeLink = !isMetaInAppBrowser();
+    var filePayload = createSharePayload(files, includeLink);
 
-    if (isMetaInAppBrowser()) {
-      nativeShare(linkPayload).then(function () {
+    if (navigator.canShare && navigator.canShare(filePayload)) {
+      nativeShare(filePayload).then(function () {
         document.body.dataset.shareState = "shared";
       }).catch(function (error) {
         if (error && error.name === "AbortError") {
@@ -1393,34 +1395,7 @@
       return;
     }
 
-    if (navigator.canShare && navigator.canShare(filePayload)) {
-      nativeShare(filePayload).then(function () {
-        document.body.dataset.shareState = "shared";
-      }).catch(function (error) {
-        if (error && error.name === "AbortError") {
-          document.body.dataset.shareState = "cancelled";
-          showToast(copy.shareCancelled);
-          return;
-        }
-        nativeShare(linkPayload).then(function () {
-          document.body.dataset.shareState = "shared";
-        }).catch(function () {
-          fallbackShare(shareBlob);
-        });
-      });
-      return;
-    }
-
-    nativeShare(linkPayload).then(function () {
-      document.body.dataset.shareState = "shared";
-    }).catch(function (error) {
-      if (error && error.name === "AbortError") {
-        document.body.dataset.shareState = "cancelled";
-        showToast(copy.shareCancelled);
-        return;
-      }
-      fallbackShare(shareBlob);
-    });
+    fallbackShare(shareBlob);
   }
 
   function loadSheets(done) {
