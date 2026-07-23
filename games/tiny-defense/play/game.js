@@ -70,6 +70,8 @@
       cardCta: "당신은 몇 개까지 이어갈 수 있나요?",
       shareTitle: "Tiny Defense 도끼질 챌린지",
       shareText: "Tiny Defense 도끼질 챌린지에서 나무 {score}개 기록! 당신은 몇 개까지 이어갈 수 있나요?",
+      imageView: "이미지 보기",
+      imageHint: "아래 결과 이미지를 길게 눌러 저장하거나 공유하세요.",
       sharePreparing: "카드 준비 중…",
       shareRebuild: "카드 다시 만들기",
       shareRebuilding: "결과 카드를 다시 만들고 있어요.",
@@ -140,6 +142,8 @@
       cardCta: "How long can you keep the streak alive?",
       shareTitle: "Tiny Defense Axe Challenge",
       shareText: "I scored {score} wood in the Tiny Defense Axe Challenge. How long can you keep the streak alive?",
+      imageView: "View Image",
+      imageHint: "Long-press the result image below to save or share it.",
       sharePreparing: "Preparing card…",
       shareRebuild: "Rebuild card",
       shareRebuilding: "Rebuilding your result card.",
@@ -210,6 +214,8 @@
       cardCta: "あなたは何本までつなげられますか？",
       shareTitle: "Tiny Defense 木こりチャレンジ",
       shareText: "Tiny Defense 木こりチャレンジで丸太{score}本を記録！あなたは何本までつなげられますか？",
+      imageView: "画像を表示",
+      imageHint: "下のリザルト画像を長押しして保存または共有してください。",
       sharePreparing: "リザルトカードを準備中…",
       shareRebuild: "カードを再作成",
       shareRebuilding: "リザルトカードを再作成しています。",
@@ -240,7 +246,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-10";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-11";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -259,6 +265,10 @@
   var newRecordEl = document.getElementById("newRecord");
   var retryBtn = document.getElementById("retryBtn");
   var shareBtn = document.getElementById("shareBtn");
+  var imageViewBtn = document.getElementById("imageViewBtn");
+  var imagePanel = document.getElementById("imagePanel");
+  var imagePanelHint = document.getElementById("imagePanelHint");
+  var imagePreview = document.getElementById("imagePreview");
   var toast = document.getElementById("toast");
   var chopSfx = document.getElementById("chopSfx");
 
@@ -307,6 +317,7 @@
   var shareScore = 0;
   var shareBest = 0;
   var shareGeneration = 0;
+  var imagePreviewUrl = "";
   var toastTimer = 0;
   var lastFrame = 0;
   var suppressPointerClick = false;
@@ -369,6 +380,9 @@
     document.getElementById("resultBestLabel").textContent = copy.bestLabel;
     retryBtn.textContent = copy.retry;
     setShareButton(copy.share, true);
+    imageViewBtn.textContent = copy.imageView;
+    imagePanelHint.textContent = copy.imageHint;
+    imagePreview.setAttribute("alt", copy.ogDescription);
     document.getElementById("storeButtonLabel").textContent = copy.store;
     resultTierEl.textContent = copy.tiers[0].title;
     resultCopyEl.textContent = copy.tiers[0].copy;
@@ -471,6 +485,8 @@
     shareCardPromise = null;
     shareGeneration += 1;
     newRecordEl.hidden = true;
+    imageViewBtn.disabled = true;
+    hideImagePanel();
     document.body.dataset.shareState = "idle";
     resultOverlay.dataset.shareBytes = "0";
     document.body.dataset.gameState = "running";
@@ -1266,6 +1282,8 @@
     var cardBest = shareBest;
     shareBlob = null;
     shareBtn.disabled = true;
+    imageViewBtn.disabled = true;
+    hideImagePanel();
     setShareButton(copy.sharePreparing, false);
     document.body.dataset.shareState = "generating";
     shareCardPromise = createShareCard(cardScore, cardBest)
@@ -1273,6 +1291,7 @@
         if (generation !== shareGeneration) return null;
         shareBlob = blob;
         shareBtn.disabled = false;
+        imageViewBtn.disabled = false;
         setShareButton(copy.share, true);
         document.body.dataset.shareState = "generated";
         resultOverlay.dataset.shareBytes = String(blob.size);
@@ -1284,6 +1303,7 @@
       .catch(function () {
         if (generation !== shareGeneration) return null;
         shareBtn.disabled = false;
+        imageViewBtn.disabled = true;
         setShareButton(copy.shareRebuild, false);
         document.body.dataset.shareState = "error";
         return null;
@@ -1302,6 +1322,32 @@
   function fallbackShare() {
     document.body.dataset.shareState = "blocked";
     showToast(copy.shareBlocked);
+  }
+
+  function hideImagePanel() {
+    imagePanel.hidden = true;
+    imagePreview.removeAttribute("src");
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      imagePreviewUrl = "";
+    }
+  }
+
+  function showResultImage() {
+    if (!shareBlob) {
+      prepareShareCard();
+      showToast(copy.shareRebuilding);
+      return;
+    }
+
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    imagePreviewUrl = URL.createObjectURL(shareBlob);
+    imagePreview.src = imagePreviewUrl;
+    imagePanel.hidden = false;
+    document.body.dataset.shareState = "image-visible";
+    window.setTimeout(function () {
+      imagePanel.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+    }, 40);
   }
 
   function createSharePayload(files, options) {
@@ -1437,6 +1483,7 @@
   window.addEventListener("keydown", unlockChopAudio, true);
   retryBtn.addEventListener("click", restart);
   shareBtn.addEventListener("click", shareResult);
+  imageViewBtn.addEventListener("click", showResultImage);
   window.addEventListener("resize", resize);
   window.addEventListener("storage", function (event) {
     if (event.key !== BEST_KEY) return;
