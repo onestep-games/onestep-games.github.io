@@ -243,7 +243,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-6";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-7";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
