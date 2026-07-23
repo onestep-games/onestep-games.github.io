@@ -68,6 +68,8 @@
       cardScore: "{score}개",
       cardBest: "최고 기록  {best}",
       cardCta: "당신은 몇 개까지 이어갈 수 있나요?",
+      shareTitle: "Tiny Defense 도끼질 챌린지",
+      shareText: "Tiny Defense 도끼질 챌린지에서 나무 {score}개 기록! 당신은 몇 개까지 이어갈 수 있나요?",
       sharePreparing: "카드 준비 중…",
       shareRebuild: "카드 다시 만들기",
       shareRebuilding: "결과 카드를 다시 만들고 있어요.",
@@ -137,6 +139,8 @@
       cardScore: "{score}",
       cardBest: "BEST  {best}",
       cardCta: "How long can you keep the streak alive?",
+      shareTitle: "Tiny Defense Axe Challenge",
+      shareText: "I scored {score} wood in the Tiny Defense Axe Challenge. How long can you keep the streak alive?",
       sharePreparing: "Preparing card…",
       shareRebuild: "Rebuild card",
       shareRebuilding: "Rebuilding your result card.",
@@ -206,6 +210,8 @@
       cardScore: "{score}",
       cardBest: "ベストスコア  {best}本",
       cardCta: "あなたは何本までつなげられますか？",
+      shareTitle: "Tiny Defense 木こりチャレンジ",
+      shareText: "Tiny Defense 木こりチャレンジで丸太{score}本を記録！あなたは何本までつなげられますか？",
       sharePreparing: "リザルトカードを準備中…",
       shareRebuild: "カードを再作成",
       shareRebuilding: "リザルトカードを再作成しています。",
@@ -237,7 +243,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-5";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-6";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -1341,6 +1347,26 @@
     });
   }
 
+  function createSharePayload(files) {
+    var payload = {
+      title: copy.shareTitle,
+      text: format(copy.shareText, { score: shareScore, best: shareBest }),
+      url: SHARE_URL
+    };
+
+    if (files && files.length) payload.files = files;
+    return payload;
+  }
+
+  function isMetaInAppBrowser() {
+    return /FBAN|FBAV|FB_IAB|Instagram|Threads|Barcelona/i.test(navigator.userAgent || "");
+  }
+
+  function nativeShare(payload) {
+    if (!navigator.share) return Promise.reject(new Error("Web Share API unavailable"));
+    return navigator.share(payload);
+  }
+
   function shareResult() {
     if (!shareBlob) {
       prepareShareCard();
@@ -1349,10 +1375,12 @@
     }
 
     var file = new File([shareBlob], "tiny-defense-axe-" + shareScore + ".png", { type: "image/png" });
-    var payload = { files: [file] };
+    var files = [file];
+    var linkPayload = createSharePayload();
+    var filePayload = createSharePayload(files);
 
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share(payload).then(function () {
+    if (isMetaInAppBrowser()) {
+      nativeShare(linkPayload).then(function () {
         document.body.dataset.shareState = "shared";
       }).catch(function (error) {
         if (error && error.name === "AbortError") {
@@ -1365,7 +1393,34 @@
       return;
     }
 
-    fallbackShare(shareBlob);
+    if (navigator.canShare && navigator.canShare(filePayload)) {
+      nativeShare(filePayload).then(function () {
+        document.body.dataset.shareState = "shared";
+      }).catch(function (error) {
+        if (error && error.name === "AbortError") {
+          document.body.dataset.shareState = "cancelled";
+          showToast(copy.shareCancelled);
+          return;
+        }
+        nativeShare(linkPayload).then(function () {
+          document.body.dataset.shareState = "shared";
+        }).catch(function () {
+          fallbackShare(shareBlob);
+        });
+      });
+      return;
+    }
+
+    nativeShare(linkPayload).then(function () {
+      document.body.dataset.shareState = "shared";
+    }).catch(function (error) {
+      if (error && error.name === "AbortError") {
+        document.body.dataset.shareState = "cancelled";
+        showToast(copy.shareCancelled);
+        return;
+      }
+      fallbackShare(shareBlob);
+    });
   }
 
   function loadSheets(done) {
