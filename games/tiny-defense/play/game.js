@@ -72,6 +72,8 @@
       shareText: "Tiny Defense 도끼질 챌린지에서 나무 {score}개 기록! 당신은 몇 개까지 이어갈 수 있나요?",
       imageView: "이미지 보기",
       imageHint: "아래 결과 이미지를 길게 눌러 저장하거나 공유하세요.",
+      imageOpened: "새 창에 이미지를 열었어요. 저장이 안 되면 스크린샷 또는 외부 브라우저를 사용해주세요.",
+      imageOpenBlocked: "웹뷰에서 새 창 열기가 막혔어요. 스크린샷 또는 외부 브라우저를 사용해주세요.",
       sharePreparing: "카드 준비 중…",
       shareRebuild: "카드 다시 만들기",
       shareRebuilding: "결과 카드를 다시 만들고 있어요.",
@@ -144,6 +146,8 @@
       shareText: "I scored {score} wood in the Tiny Defense Axe Challenge. How long can you keep the streak alive?",
       imageView: "View Image",
       imageHint: "Long-press the result image below to save or share it.",
+      imageOpened: "Opened the image in a new window. If saving fails, use a screenshot or an external browser.",
+      imageOpenBlocked: "This webview blocked the new image window. Use a screenshot or open the page in your browser.",
       sharePreparing: "Preparing card…",
       shareRebuild: "Rebuild card",
       shareRebuilding: "Rebuilding your result card.",
@@ -216,6 +220,8 @@
       shareText: "Tiny Defense 木こりチャレンジで丸太{score}本を記録！あなたは何本までつなげられますか？",
       imageView: "画像を表示",
       imageHint: "下のリザルト画像を長押しして保存または共有してください。",
+      imageOpened: "新しいウィンドウで画像を開きました。保存できない場合はスクリーンショットまたは外部ブラウザをご利用ください。",
+      imageOpenBlocked: "アプリ内ブラウザで新しい画像ウィンドウがブロックされました。スクリーンショットまたは外部ブラウザをご利用ください。",
       sharePreparing: "リザルトカードを準備中…",
       shareRebuild: "カードを再作成",
       shareRebuilding: "リザルトカードを再作成しています。",
@@ -246,7 +252,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-11";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-12";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -316,6 +322,7 @@
   var shareCardPromise = null;
   var shareScore = 0;
   var shareBest = 0;
+  var shareIsRecord = false;
   var shareGeneration = 0;
   var imagePreviewUrl = "";
   var toastTimer = 0;
@@ -483,6 +490,7 @@
     floats.length = 0;
     shareBlob = null;
     shareCardPromise = null;
+    shareIsRecord = false;
     shareGeneration += 1;
     newRecordEl.hidden = true;
     imageViewBtn.disabled = true;
@@ -762,6 +770,7 @@
     }
     shareScore = score;
     shareBest = best;
+    shareIsRecord = isRecord;
   }
 
   function openResult() {
@@ -1157,7 +1166,42 @@
     target.restore();
   }
 
-  function createShareCard(value, bestValue) {
+  function drawWrappedText(target, text, x, y, maxWidth, lineHeight, maxLines) {
+    var words = String(text).split(/(\s+)/);
+    var lines = [];
+    var line = "";
+
+    function pushLine(value) {
+      if (value.trim()) lines.push(value.trim());
+    }
+
+    for (var i = 0; i < words.length; i += 1) {
+      var next = line + words[i];
+      if (target.measureText(next).width <= maxWidth) {
+        line = next;
+        continue;
+      }
+      if (line.trim()) {
+        pushLine(line);
+        line = words[i].replace(/^\s+/, "");
+      }
+      while (target.measureText(line).width > maxWidth) {
+        var cut = line.length;
+        while (cut > 1 && target.measureText(line.slice(0, cut)).width > maxWidth) cut -= 1;
+        pushLine(line.slice(0, cut));
+        line = line.slice(cut);
+      }
+    }
+    pushLine(line);
+
+    for (var j = 0; j < Math.min(lines.length, maxLines); j += 1) {
+      var output = lines[j];
+      if (j === maxLines - 1 && lines.length > maxLines) output = output.replace(/[\s.。]+$/, "") + "…";
+      target.fillText(output, x, y + j * lineHeight);
+    }
+  }
+
+  function createShareCard(value, bestValue, isRecord) {
     return Promise.all([imageReady(shareIcon), imageReady(shareWood)]).then(function () {
       var tier = tierForScore(value);
       var card = document.createElement("canvas");
@@ -1178,16 +1222,6 @@
       cardCtx.fillStyle = glow;
       cardCtx.fillRect(0, 0, card.width, 620);
 
-      cardCtx.fillStyle = "#294a47";
-      cardCtx.beginPath();
-      cardCtx.moveTo(0, 1030);
-      cardCtx.bezierCurveTo(170, 840, 340, 910, 530, 1005);
-      cardCtx.bezierCurveTo(720, 835, 920, 905, 1080, 965);
-      cardCtx.lineTo(1080, 1350);
-      cardCtx.lineTo(0, 1350);
-      cardCtx.closePath();
-      cardCtx.fill();
-
       cardCtx.strokeStyle = "rgba(229,184,62,.82)";
       cardCtx.lineWidth = 4;
       roundedPath(cardCtx, 38, 38, 1004, 1274, 32);
@@ -1207,7 +1241,7 @@
       cardCtx.fillText("TINY DEFENSE", 270, 198);
 
       cardCtx.fillStyle = "rgba(255,255,255,.12)";
-      roundedPath(cardCtx, 90, 300, 900, 610, 34);
+      roundedPath(cardCtx, 90, 286, 900, 724, 34);
       cardCtx.fill();
       cardCtx.strokeStyle = "rgba(229,184,62,.32)";
       cardCtx.lineWidth = 2;
@@ -1216,33 +1250,52 @@
       cardCtx.fillStyle = "#e5b83e";
       cardCtx.font = "900 29px " + FONT_STACK;
       cardCtx.textAlign = "center";
-      cardCtx.fillText(copy.cardEyebrow, 540, 390);
+      cardCtx.fillText(copy.cardEyebrow, 540, 368);
+
+      if (isRecord) {
+        var recordText = copy.newRecord;
+        cardCtx.font = "900 28px " + FONT_STACK;
+        var recordWidth = Math.ceil(cardCtx.measureText(recordText).width) + 58;
+        var recordX = 540 - recordWidth / 2;
+        roundedPath(cardCtx, recordX, 398, recordWidth, 52, 18);
+        cardCtx.fillStyle = "#f7dc82";
+        cardCtx.fill();
+        cardCtx.strokeStyle = "rgba(255,255,255,.58)";
+        cardCtx.lineWidth = 2;
+        cardCtx.stroke();
+        cardCtx.fillStyle = "#172033";
+        cardCtx.fillText(recordText, 540, 433);
+      }
 
       if (shareWood.naturalWidth) {
         cardCtx.imageSmoothingEnabled = false;
-        cardCtx.drawImage(shareWood, 270, 468, 112, 70);
+        cardCtx.drawImage(shareWood, 270, 488, 112, 70);
       }
       cardCtx.fillStyle = "#fffdf5";
       cardCtx.font = "950 72px " + FONT_STACK;
       cardCtx.textAlign = "left";
-      cardCtx.fillText(copy.cardWood, 405, 530);
+      cardCtx.fillText(copy.cardWood, 405, 550);
 
       var scoreFont = value >= 1000 ? 172 : value >= 100 ? 200 : 222;
       cardCtx.fillStyle = "#f7dc82";
       cardCtx.font = "950 " + scoreFont + "px " + FONT_STACK;
       cardCtx.textAlign = "center";
-      cardCtx.fillText(formatText(copy.cardScore, { score: value }), 540, 750);
+      cardCtx.fillText(formatText(copy.cardScore, { score: value }), 540, 768);
 
       cardCtx.fillStyle = "rgba(255,255,255,.72)";
       cardCtx.font = "800 42px " + FONT_STACK;
-      cardCtx.fillText(formatText(copy.cardBest, { best: bestValue }), 540, 838);
+      cardCtx.fillText(formatText(copy.cardBest, { best: bestValue }), 540, 852);
 
       cardCtx.fillStyle = "#e5b83e";
       cardCtx.font = "950 34px " + FONT_STACK;
-      cardCtx.fillText(tier.title, 540, 888);
+      cardCtx.fillText(tier.title, 540, 914);
+
+      cardCtx.fillStyle = "rgba(255,250,240,.76)";
+      cardCtx.font = "700 26px " + FONT_STACK;
+      drawWrappedText(cardCtx, tier.copy, 540, 958, 760, 36, 2);
 
       var trackX = 156;
-      var trackY = 994;
+      var trackY = 1062;
       var trackW = 768;
       roundedPath(cardCtx, trackX, trackY, trackW, 42, 12);
       cardCtx.fillStyle = "rgba(255,255,255,.18)";
@@ -1259,13 +1312,13 @@
       cardCtx.fillStyle = "#fffaf0";
       cardCtx.font = "900 33px " + FONT_STACK;
       cardCtx.textAlign = "center";
-      cardCtx.fillText(copy.cardCta, 540, 1132);
+      cardCtx.fillText(copy.cardCta, 540, 1184);
       cardCtx.fillStyle = "rgba(255,255,255,.64)";
       cardCtx.font = "700 24px " + FONT_STACK;
-      cardCtx.fillText(copy.cardUrl, 540, 1194);
+      cardCtx.fillText(copy.cardUrl, 540, 1238);
       cardCtx.fillStyle = "#e5b83e";
       cardCtx.font = "900 22px " + FONT_STACK;
-      cardCtx.fillText("PLAY · RISK · REPEAT", 540, 1250);
+      cardCtx.fillText("PLAY · RISK · REPEAT", 540, 1290);
 
       return new Promise(function (resolve, reject) {
         card.toBlob(function (blob) {
@@ -1280,13 +1333,14 @@
     var generation = ++shareGeneration;
     var cardScore = shareScore;
     var cardBest = shareBest;
+    var cardIsRecord = shareIsRecord;
     shareBlob = null;
     shareBtn.disabled = true;
     imageViewBtn.disabled = true;
     hideImagePanel();
     setShareButton(copy.sharePreparing, false);
     document.body.dataset.shareState = "generating";
-    shareCardPromise = createShareCard(cardScore, cardBest)
+    shareCardPromise = createShareCard(cardScore, cardBest, cardIsRecord)
       .then(function (blob) {
         if (generation !== shareGeneration) return null;
         shareBlob = blob;
@@ -1340,11 +1394,16 @@
       return;
     }
 
+    var imageWindow = isInAppBrowser() ? openImageWindowShell() : null;
+
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     imagePreviewUrl = URL.createObjectURL(shareBlob);
     imagePreview.src = imagePreviewUrl;
     imagePanel.hidden = false;
     document.body.dataset.shareState = "image-visible";
+    if (isInAppBrowser()) {
+      showImageInWindow(imageWindow);
+    }
     window.setTimeout(function () {
       imagePanel.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
     }, 40);
@@ -1365,6 +1424,77 @@
 
   function isMetaInAppBrowser() {
     return /FBAN|FBAV|FB_IAB|Instagram|Threads|Barcelona/i.test(navigator.userAgent || "");
+  }
+
+  function isKakaoInAppBrowser() {
+    return /KAKAOTALK|KakaoTalk|KAKAOSTORY/i.test(navigator.userAgent || "");
+  }
+
+  function isInAppBrowser() {
+    return isMetaInAppBrowser() || isKakaoInAppBrowser();
+  }
+
+  function openImageWindowShell() {
+    var opened = null;
+
+    try {
+      opened = window.open("", "_blank");
+    } catch (error) {
+      opened = null;
+    }
+
+    return opened;
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      if (!window.FileReader) {
+        reject(new Error("FileReader unavailable"));
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(reader.error || new Error("FileReader failed")); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function writeImageWindow(opened, dataUrl) {
+    if (!opened) return false;
+
+    try {
+      opened.document.open();
+      opened.document.write(
+        '<!doctype html><html><head><meta charset="utf-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
+        '<title>Tiny Defense</title>' +
+        '<style>html,body{margin:0;min-height:100%;background:#121827;}body{display:grid;place-items:center;padding:16px;box-sizing:border-box;}img{display:block;width:min(100%,540px);height:auto;box-shadow:0 18px 48px rgba(0,0,0,.35);}</style>' +
+        '</head><body><img src="' + dataUrl + '" alt=""></body></html>'
+      );
+      opened.document.close();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function showImageInWindow(opened) {
+    if (!opened) {
+      showToast(copy.imageOpenBlocked);
+      return;
+    }
+
+    blobToDataUrl(shareBlob).then(function (dataUrl) {
+      imagePreview.src = dataUrl;
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+        imagePreviewUrl = "";
+      }
+      showToast(writeImageWindow(opened, dataUrl) ? copy.imageOpened : copy.imageOpenBlocked);
+    }).catch(function () {
+      showToast(copy.imageOpenBlocked);
+    });
   }
 
   function canSharePayload(payload) {
