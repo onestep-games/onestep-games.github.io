@@ -70,11 +70,12 @@
       cardCta: "당신은 몇 개까지 이어갈 수 있나요?",
       shareTitle: "Tiny Defense 도끼질 챌린지",
       shareText: "Tiny Defense 도끼질 챌린지에서 나무 {score}개 기록! 당신은 몇 개까지 이어갈 수 있나요?",
+      savePng: "PNG 저장",
       sharePreparing: "카드 준비 중…",
       shareRebuild: "카드 다시 만들기",
       shareRebuilding: "결과 카드를 다시 만들고 있어요.",
-      fallbackSaved: "결과 PNG를 저장하고 도전 링크를 복사했어요.",
-      fallbackNoCopy: "결과 PNG를 저장했어요. 링크는 주소창에서 복사해 주세요.",
+      fallbackSaved: "공유가 막혀 PNG 저장으로 전환했어요. 필요하면 PNG 저장을 다시 눌러주세요.",
+      fallbackNoCopy: "공유가 막혀 PNG 저장으로 전환했어요. PNG 저장을 다시 눌러주세요.",
       shareCancelled: "공유를 취소했어요.",
       pngError: "PNG 카드 생성 실패"
     },
@@ -141,11 +142,12 @@
       cardCta: "How long can you keep the streak alive?",
       shareTitle: "Tiny Defense Axe Challenge",
       shareText: "I scored {score} wood in the Tiny Defense Axe Challenge. How long can you keep the streak alive?",
+      savePng: "Save PNG",
       sharePreparing: "Preparing card…",
       shareRebuild: "Rebuild card",
       shareRebuilding: "Rebuilding your result card.",
-      fallbackSaved: "Saved the result PNG and copied the challenge link.",
-      fallbackNoCopy: "Saved the result PNG. Copy the link from your address bar.",
+      fallbackSaved: "Sharing was blocked, so PNG save is ready. Tap Save PNG again if needed.",
+      fallbackNoCopy: "Sharing was blocked, so PNG save is ready. Tap Save PNG again.",
       shareCancelled: "Sharing canceled.",
       pngError: "Could not generate the PNG card"
     },
@@ -212,11 +214,12 @@
       cardCta: "あなたは何本までつなげられますか？",
       shareTitle: "Tiny Defense 木こりチャレンジ",
       shareText: "Tiny Defense 木こりチャレンジで丸太{score}本を記録！あなたは何本までつなげられますか？",
+      savePng: "PNG保存",
       sharePreparing: "リザルトカードを準備中…",
       shareRebuild: "カードを再作成",
       shareRebuilding: "リザルトカードを再作成しています。",
-      fallbackSaved: "結果カードのPNGを保存し、チャレンジリンクをコピーしました。",
-      fallbackNoCopy: "結果カードのPNGを保存しました。リンクはアドレスバーからコピーしてください。",
+      fallbackSaved: "共有がブロックされたため、PNG保存に切り替えました。必要ならもう一度PNG保存を押してください。",
+      fallbackNoCopy: "共有がブロックされたため、PNG保存に切り替えました。もう一度PNG保存を押してください。",
       shareCancelled: "シェアをキャンセルしました。",
       pngError: "PNGカードの生成に失敗しました"
     }
@@ -243,7 +246,7 @@
   var TREE_BASE_Y = 700;
   var PAWN_X = 292;
   var PAWN_BASE_Y = 747;
-  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-7";
+  var CHOP_AUDIO_URL = "./assets/sfx-chop.wav?v=score-attack-8";
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var canvas = document.getElementById("game");
@@ -262,6 +265,7 @@
   var newRecordEl = document.getElementById("newRecord");
   var retryBtn = document.getElementById("retryBtn");
   var shareBtn = document.getElementById("shareBtn");
+  var savePngBtn = document.getElementById("savePngBtn");
   var toast = document.getElementById("toast");
   var chopSfx = document.getElementById("chopSfx");
 
@@ -372,6 +376,7 @@
     document.getElementById("resultBestLabel").textContent = copy.bestLabel;
     retryBtn.textContent = copy.retry;
     setShareButton(copy.share, true);
+    savePngBtn.textContent = copy.savePng;
     document.getElementById("storeButtonLabel").textContent = copy.store;
     resultTierEl.textContent = copy.tiers[0].title;
     resultCopyEl.textContent = copy.tiers[0].copy;
@@ -474,6 +479,7 @@
     shareCardPromise = null;
     shareGeneration += 1;
     newRecordEl.hidden = true;
+    savePngBtn.hidden = true;
     document.body.dataset.shareState = "idle";
     resultOverlay.dataset.shareBytes = "0";
     document.body.dataset.gameState = "running";
@@ -1338,6 +1344,7 @@
   }
 
   function fallbackShare(blob) {
+    savePngBtn.hidden = false;
     downloadPng(blob, shareScore);
     copyText(SHARE_URL).then(function (copied) {
       document.body.dataset.shareState = "fallback";
@@ -1347,16 +1354,16 @@
     });
   }
 
-  function createSharePayload(files, includeLink) {
-    var hasFiles = Boolean(files && files.length);
-    var shareText = format(copy.shareText, { score: shareScore, best: shareBest });
-    var payload = {
-      title: copy.shareTitle,
-      text: includeLink ? shareText + "\n" + SHARE_URL : shareText
-    };
+  function createSharePayload(files, options) {
+    var settings = options || {};
+    var shareText = formatText(copy.shareText, { score: shareScore, best: shareBest });
+    var payload = {};
 
-    if (hasFiles) payload.files = files;
-    else if (includeLink) payload.url = SHARE_URL;
+    if (settings.includeTitle) payload.title = copy.shareTitle;
+    if (settings.includeText) payload.text = settings.includeLink ? shareText + "\n" + SHARE_URL : shareText;
+    if (settings.includeUrl) payload.url = SHARE_URL;
+
+    payload.files = files;
     return payload;
   }
 
@@ -1364,9 +1371,40 @@
     return /FBAN|FBAV|FB_IAB|Instagram|Threads|Barcelona/i.test(navigator.userAgent || "");
   }
 
-  function nativeShare(payload) {
-    if (!navigator.share) return Promise.reject(new Error("Web Share API unavailable"));
-    return navigator.share(payload);
+  function canSharePayload(payload) {
+    if (!navigator.share) return false;
+    if (!navigator.canShare) return true;
+
+    try {
+      return navigator.canShare(payload);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function sharePayloadVariants(files) {
+    var isMeta = isMetaInAppBrowser();
+    var variants = [
+      createSharePayload(files, { includeTitle: true, includeText: true, includeLink: !isMeta }),
+      createSharePayload(files, { includeText: true, includeLink: false }),
+      createSharePayload(files, {})
+    ];
+
+    return variants.filter(canSharePayload);
+  }
+
+  function saveCurrentPng() {
+    if (!shareBlob) {
+      prepareShareCard();
+      showToast(copy.shareRebuilding);
+      return;
+    }
+
+    savePngBtn.hidden = false;
+    downloadPng(shareBlob, shareScore);
+    copyText(SHARE_URL).then(function (copied) {
+      showToast(copied ? copy.fallbackSaved : copy.fallbackNoCopy);
+    });
   }
 
   function shareResult() {
@@ -1378,11 +1416,11 @@
 
     var file = new File([shareBlob], "tiny-defense-axe-" + shareScore + ".png", { type: "image/png" });
     var files = [file];
-    var includeLink = !isMetaInAppBrowser();
-    var filePayload = createSharePayload(files, includeLink);
+    var variants = sharePayloadVariants(files);
+    var filePayload = variants[0];
 
-    if (navigator.canShare && navigator.canShare(filePayload)) {
-      nativeShare(filePayload).then(function () {
+    if (filePayload) {
+      navigator.share(filePayload).then(function () {
         document.body.dataset.shareState = "shared";
       }).catch(function (error) {
         if (error && error.name === "AbortError") {
@@ -1463,6 +1501,7 @@
   window.addEventListener("keydown", unlockChopAudio, true);
   retryBtn.addEventListener("click", restart);
   shareBtn.addEventListener("click", shareResult);
+  savePngBtn.addEventListener("click", saveCurrentPng);
   window.addEventListener("resize", resize);
   window.addEventListener("storage", function (event) {
     if (event.key !== BEST_KEY) return;
